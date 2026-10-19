@@ -32,3 +32,13 @@ Laravel (PHP-FPM) + MySQL + phpMyAdmin + Nginx reverse proxy (HTTPS tu ky).
 - docker/nginx/: cau hinh Nginx
 - docker/php/: Dockerfile PHP
 - src/: ma nguon Laravel
+
+## Giam sat (Prometheus + Grafana)
+- Prometheus: http://IP-MAY:9090 (thu metrics tu node-exporter, cAdvisor, mysqld-exporter, nginx-exporter)
+- Grafana: http://IP-MAY:3000 (user admin, mat khau lay tu GRAFANA_PASSWORD trong .env)
+- Import dashboard theo ID: 1860 (may chu), 14282 (container), 7362 (MySQL), 12708 (Nginx)
+- Truoc khi chay can tao file docker/mysqld-exporter/.my.cnf tu file .my.cnf.example va tao user exporter trong MySQL
+
+## Log tap trung (Loki + Promtail)
+- Promtail doc log moi container qua Docker, gui sang Loki; Grafana truy van bang LogQL (Explore, chon nguon Loki)
+- Vi du: {service="nginx"} |= " 404 "
