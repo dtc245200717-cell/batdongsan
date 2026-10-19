@@ -28,7 +28,7 @@ Ba mạng Docker: frontend (Nginx), backend (app, MySQL, phpMyAdmin - internal, 
 
 ## Hướng dẫn chạy
 
-Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy Docker.
+Yêu cầu: Docker và Docker Compose. Hệ thống demo dùng IP 192.168.98.129. Nếu chạy trên máy khác, thay IP này trong các lệnh bên dưới (và trong PMA_ABSOLUTE_URI).
 
 1. Tạo file môi trường và đặt mật khẩu mạnh:
 
@@ -43,19 +43,19 @@ Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy D
 3. Tạo chứng chỉ HTTPS tự ký:
 
         mkdir -p docker/nginx/certs
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout docker/nginx/certs/selfsigned.key -out docker/nginx/certs/selfsigned.crt -subj "/CN=IP-MAY" -addext "subjectAltName=IP:IP-MAY"
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout docker/nginx/certs/selfsigned.key -out docker/nginx/certs/selfsigned.crt -subj "/CN=192.168.98.129" -addext "subjectAltName=IP:192.168.98.129"
         chmod 644 docker/nginx/certs/selfsigned.key
 
 4. Cấu hình Laravel và cài thư viện:
 
         cp src/.env.example src/.env
         # sửa trong src/.env: DB_CONNECTION=mysql, DB_HOST=mysql, DB_DATABASE=batdongsan,
-        # DB_USERNAME=bds_user, DB_PASSWORD (giống DB_PASSWORD trong .env), APP_URL=https://IP-MAY
+        # DB_USERNAME=bds_user, DB_PASSWORD (giống DB_PASSWORD trong .env), APP_URL=https://192.168.98.129
         docker compose build
         docker compose run --rm -e COMPOSER_HOME=/tmp app composer install
         docker compose run --rm app php artisan key:generate
 
-5. Sửa PMA_ABSOLUTE_URI trong docker-compose.yml thành `https://IP-MAY/pma/` rồi chạy:
+5. Sửa PMA_ABSOLUTE_URI trong docker-compose.yml thành `https://192.168.98.129/pma/` rồi chạy:
 
         docker compose up -d
 
@@ -71,10 +71,10 @@ Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy D
 
 ## Truy cập
 
-- Website: `https://IP-MAY` (trình duyệt cảnh báo chứng chỉ tự ký, chọn Tiếp tục)
-- phpMyAdmin: `https://IP-MAY/pma/` (user bds_user)
-- Prometheus: `http://IP-MAY:9090/targets`
-- Grafana: `http://IP-MAY:3000` (user admin, mật khẩu GRAFANA_PASSWORD trong .env)
+- Website: `https://192.168.98.129` (trình duyệt cảnh báo chứng chỉ tự ký, chọn Tiếp tục)
+- phpMyAdmin: `https://192.168.98.129/pma/` (user bds_user)
+- Prometheus: `http://192.168.98.129:9090/targets`
+- Grafana: `http://192.168.98.129:3000` (user admin, mật khẩu GRAFANA_PASSWORD trong .env)
 
 ## Giám sát (Prometheus + Grafana)
 
