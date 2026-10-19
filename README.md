@@ -1,44 +1,112 @@
-# Website Bat dong san - De 25
+# Website Bất động sản - Đề 25
 
-He thong dang tin bat dong san chay bang Docker Compose:
-Laravel (PHP-FPM) + MySQL + phpMyAdmin + Nginx reverse proxy (HTTPS tu ky).
+Hệ thống đăng tin bất động sản (nhà đất, tìm kiếm, liên hệ) triển khai hoàn toàn bằng Docker Compose,
+có giám sát (Prometheus + Grafana), log tập trung (Loki + Promtail) và hardening.
 
-## Yeu cau
-- Docker + Docker Compose
+## Kiến trúc
 
-## Cach chay
-1. Tao file moi truong: cp .env.example .env roi doi mat khau.
-2. Tao chung chi HTTPS tu ky (thay IP-MAY bang IP cua may):
+    Trình duyệt --HTTPS--> Nginx (reverse proxy) --> Laravel (PHP-FPM) --> MySQL
+                                |--> /pma/ --> phpMyAdmin --> MySQL
 
-    mkdir -p docker/nginx/certs
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout docker/nginx/certs/selfsigned.key -out docker/nginx/certs/selfsigned.crt -subj "/CN=IP-MAY" -addext "subjectAltName=IP:IP-MAY"
+    Giám sát: node-exporter, cAdvisor, mysqld-exporter, nginx-exporter --> Prometheus --> Grafana
+    Log:      container --> Promtail --> Loki --> Grafana (LogQL)
 
-3. Tao file cau hinh Laravel: cp src/.env.example src/.env
-   Sua cac dong: DB_CONNECTION=mysql, DB_HOST=mysql, DB_DATABASE=batdongsan,
-   DB_USERNAME=bds_user, DB_PASSWORD (giong file .env).
-4. Chay he thong: docker compose up -d
-5. Cai thu vien, tao khoa ung dung, tao bang:
+Ba mạng Docker: frontend (Nginx), backend (app, MySQL, phpMyAdmin - internal, không ra internet), monitoring.
 
-    docker compose exec app composer install
-    docker compose exec app php artisan key:generate
-    docker compose exec app php artisan migrate
+## Các dịch vụ
 
-## Truy cap
-- Website: https://IP-MAY
-- phpMyAdmin: https://IP-MAY/pma/
+| Dịch vụ | Vai trò | Cổng ngoài |
+|---|---|---|
+| nginx | Reverse proxy, HTTPS tự ký, security headers | 80, 443 |
+| app | Laravel (PHP-FPM, chạy user 1000) | - |
+| mysql | Cơ sở dữ liệu | - |
+| phpmyadmin | Quản trị DB, truy cập qua /pma/ | - |
+| prometheus | Thu thập metrics | 9090 |
+| grafana | Dashboard, truy vấn LogQL | 3000 |
+| node-exporter, cadvisor, mysqld-exporter, nginx-exporter | Xuất metrics | - |
+| loki, promtail | Log tập trung | - |
 
-## Cau truc
-- docker-compose.yml: cac dich vu
-- docker/nginx/: cau hinh Nginx
-- docker/php/: Dockerfile PHP
-- src/: ma nguon Laravel
+## Hướng dẫn chạy
 
-## Giam sat (Prometheus + Grafana)
-- Prometheus: http://IP-MAY:9090 (thu metrics tu node-exporter, cAdvisor, mysqld-exporter, nginx-exporter)
-- Grafana: http://IP-MAY:3000 (user admin, mat khau lay tu GRAFANA_PASSWORD trong .env)
-- Import dashboard theo ID: 1860 (may chu), 14282 (container), 7362 (MySQL), 12708 (Nginx)
-- Truoc khi chay can tao file docker/mysqld-exporter/.my.cnf tu file .my.cnf.example va tao user exporter trong MySQL
+Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy Docker.
 
-## Log tap trung (Loki + Promtail)
-- Promtail doc log moi container qua Docker, gui sang Loki; Grafana truy van bang LogQL (Explore, chon nguon Loki)
-- Vi du: {service="nginx"} |= " 404 "
+1. Tạo file môi trường và đặt mật khẩu mạnh:
+
+        cp .env.example .env
+        nano .env
+
+2. Tạo file cấu hình cho mysqld-exporter (đặt mật khẩu cho user exporter):
+
+        cp docker/mysqld-exporter/.my.cnf.example docker/mysqld-exporter/.my.cnf
+        nano docker/mysqld-exporter/.my.cnf
+
+3. Tạo chứng chỉ HTTPS tự ký:
+
+        mkdir -p docker/nginx/certs
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout docker/nginx/certs/selfsigned.key -out docker/nginx/certs/selfsigned.crt -subj "/CN=IP-MAY" -addext "subjectAltName=IP:IP-MAY"
+        chmod 644 docker/nginx/certs/selfsigned.key
+
+4. Cấu hình Laravel và cài thư viện:
+
+        cp src/.env.example src/.env
+        # sửa trong src/.env: DB_CONNECTION=mysql, DB_HOST=mysql, DB_DATABASE=batdongsan,
+        # DB_USERNAME=bds_user, DB_PASSWORD (giống DB_PASSWORD trong .env), APP_URL=https://IP-MAY
+        docker compose build
+        docker compose run --rm -e COMPOSER_HOME=/tmp app composer install
+        docker compose run --rm app php artisan key:generate
+
+5. Sửa PMA_ABSOLUTE_URI trong docker-compose.yml thành https://IP-MAY/pma/ rồi chạy:
+
+        docker compose up -d
+
+6. Tạo user chỉ đọc cho exporter trong MySQL (thay MAT_KHAU_EXPORTER bằng mật khẩu ở bước 2):
+
+        docker compose exec mysql mysql -uroot -p -e "CREATE USER IF NOT EXISTS 'exporter'@'%' IDENTIFIED BY 'MAT_KHAU_EXPORTER' WITH MAX_USER_CONNECTIONS 3; GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'%'; FLUSH PRIVILEGES;"
+        docker compose restart mysqld-exporter
+
+7. Tạo bảng và dữ liệu mẫu:
+
+        docker compose exec app php artisan migrate --force
+        docker compose exec app php artisan db:seed --class=PropertySeeder --force
+
+## Truy cập
+
+- Website: https://IP-MAY (trình duyệt cảnh báo chứng chỉ tự ký, chọn Tiếp tục)
+- phpMyAdmin: https://IP-MAY/pma/ (user bds_user)
+- Prometheus: http://IP-MAY:9090/targets
+- Grafana: http://IP-MAY:3000 (user admin, mật khẩu GRAFANA_PASSWORD trong .env)
+
+## Giám sát (Prometheus + Grafana)
+
+Prometheus thu metrics của máy chủ (node-exporter), container (cAdvisor), MySQL (mysqld-exporter) và Nginx (nginx-exporter).
+Grafana tự thêm nguồn Prometheus và Loki (docker/grafana/provisioning). Import dashboard theo ID:
+1860 (máy chủ), 14282 (container), 7362 (MySQL), 12708 (Nginx).
+
+## Log tập trung (Loki + Promtail)
+
+Promtail đọc log mọi container qua Docker, gửi sang Loki. Truy vấn LogQL trong Grafana (Explore, nguồn Loki):
+
+    {service="nginx"}
+    {service="nginx"} |= " 404 "
+    sum(rate({service="nginx"}[1m]))
+    sum by (service) (count_over_time({service=~".+"}[5m]))
+
+## Hardening
+
+1. Non-root container: app chạy user 1000, Nginx dùng nginx-unprivileged (uid 101).
+2. Network isolation: 3 mạng riêng; mạng backend là internal, app và MySQL không ra được internet.
+3. Mật khẩu mạnh: mật khẩu ngẫu nhiên 24 ký tự cho MySQL và Grafana, lưu trong .env (không đưa lên Git).
+4. Hạn chế quyền DB: xóa root@%, bds_user chỉ có quyền trên DB batdongsan, exporter chỉ đọc.
+5. Security headers Nginx: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy; HTTP chuyển sang HTTPS.
+6. Giới hạn: no-new-privileges, cap_drop ALL, rate limit Nginx và throttle form, APP_DEBUG=false.
+
+## Cấu trúc thư mục
+
+    docker-compose.yml          các dịch vụ và mạng
+    docker/nginx/               cấu hình Nginx và chứng chỉ (certs/ không đưa lên Git)
+    docker/php/                 Dockerfile PHP-FPM
+    docker/prometheus/          cấu hình Prometheus
+    docker/promtail/            cấu hình Promtail
+    docker/grafana/provisioning nguồn dữ liệu Grafana
+    docker/mysqld-exporter/     cấu hình exporter (.my.cnf không đưa lên Git)
+    src/                        mã nguồn Laravel
