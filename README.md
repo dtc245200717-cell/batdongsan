@@ -55,7 +55,7 @@ Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy D
         docker compose run --rm -e COMPOSER_HOME=/tmp app composer install
         docker compose run --rm app php artisan key:generate
 
-5. Sửa PMA_ABSOLUTE_URI trong docker-compose.yml thành https://IP-MAY/pma/ rồi chạy:
+5. Sửa PMA_ABSOLUTE_URI trong docker-compose.yml thành `https://IP-MAY/pma/` rồi chạy:
 
         docker compose up -d
 
@@ -71,10 +71,10 @@ Yêu cầu: Docker và Docker Compose. Thay IP-MAY bằng IP của máy chạy D
 
 ## Truy cập
 
-- Website: https://IP-MAY (trình duyệt cảnh báo chứng chỉ tự ký, chọn Tiếp tục)
-- phpMyAdmin: https://IP-MAY/pma/ (user bds_user)
-- Prometheus: http://IP-MAY:9090/targets
-- Grafana: http://IP-MAY:3000 (user admin, mật khẩu GRAFANA_PASSWORD trong .env)
+- Website: `https://IP-MAY` (trình duyệt cảnh báo chứng chỉ tự ký, chọn Tiếp tục)
+- phpMyAdmin: `https://IP-MAY/pma/` (user bds_user)
+- Prometheus: `http://IP-MAY:9090/targets`
+- Grafana: `http://IP-MAY:3000` (user admin, mật khẩu GRAFANA_PASSWORD trong .env)
 
 ## Giám sát (Prometheus + Grafana)
 
